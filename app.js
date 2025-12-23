@@ -1,71 +1,146 @@
-require('dotenv').config();
+require("dotenv").config();
 // const express = require('express');
 // const app = express();
 // Or
-const app = require('express')();
-const {Server} = require('socket.io');
-const DBConnect = require('./database');
+const app = require("express")();
+const { Server } = require("socket.io");
+const DBConnect = require("./database");
+const Book = require("./model/bookModel");
 
 // *Database Connection
 DBConnect();
 
-const PORT = process.env.PORT 
+const PORT = process.env.PORT;
 const server = app.listen(PORT, () => {
   console.log(`Server is running on ${PORT}`);
 });
 
 const io = new Server(server);
 
-io.on('connection', (socket) => {
-//   console.log('Someone has connected: ', socket.id); 
+io.on("connection", (socket) => {
+  console.log("A user is connected");
+});
 
-//   socket.on('sendData', (data) => {
-//     console.log('Data received: ', data);
-// //     io.emit('sendData', data); // Broadcast the message to all connected clients
-//   });
+// *CRUD Operations of Book Model
+io.on("connection", (socket) => {
+  console.log("A user is connected"); // when a user is connected
 
-    socket.on('sendData', (data) => {
-      if(data){
-            // io.emit('sendData', data); // Broadcast the message to all connected clients
-
-            // io.to(socket.id).emit('sendData', data); // Send the message back to the same client
-
-            io.to(socket.id).emit('response', "Data received successfully"); // Send the message back to the same client
-
-            // socket.emit("response", "Data received successfully"); // Send acknowledgment to the sender
+  // *Add New Book
+  socket.on("addBook", async (data) => {
+    // event name: addBook
+    try {
+      if (data) {
+        const { bookName, bookPrice } = data;
+        const newBook = await Book.create({
+          bookName,
+          bookPrice,
+        });
+        socket.emit("response", {
+          // event name: response
+          status: 200,
+          message: "Book added successfully",
+          data: newBook,
+        });
       }
+    } catch (error) {
+      socket.emit("response", {
+        // event name: response
+        status: 500,
+        message: "Something went wrong",
+      });
+    }
   });
 
-
-      // socket.emit('msg', 'Hello from server!');
-// Or
-      // socket.emit('msg', {
-      //     gretting : 'Hello from server!'
-      // });
-  
-//   socket.on('disconnect', () => {
-//     console.log('User was disconnected: ', socket.id);
-//   });
-});  
-
-
-
-// *Send data from Frontend to Backend using Socket.io:
-io.on('connection', (socket) => {
-      // Listen for 'message' event from client
-      socket.on('message', (data) => {
-        console.log('Message from client:', data);
+  // *Get All Books
+  socket.on("getBooks", async () => {
+    // event name: getBooks
+    try {
+      const books = await Book.find(); // Fetch all books from the database
+      socket.emit("response", {
+        // event name: response
+        status: 200,
+        message: "Books fetched successfully",
+        data: books,
       });
-})
+    } catch (error) {
+      socket.emit("response", {
+        // event name: response
+        status: 500,
+        message: "Something went wrong",
+      });
+    }
+  });
 
-// *Send data from Backend to Frontend using Socket.io:
-io.on('connection', (socket) => {
-      // Send a message to the client
-      // socket.emit('msg', 'Hello from server!');
+  // *Get a Single Book
+  socket.on("getBook", async (data) => {
+    // event name: getBook
+      try {
+      if (data) {
+        const { bookId } = data;
+        const book = await Book.findById(bookId);
+        socket.emit("response", {
+          // event name: response
+              status: 200,
+              message: "Book fetched successfully",
+                  data: book,
+            });
+      }
+      } catch (error) {
+      socket.emit("response", {
+            // event name: response
+            status: 500,
+            message: "Something went wrong",
+              });
+      }
+      });
+      
 
-      // socket.emit('msg', {
-      //     greeting : 'Hello from server1!'
-      // });
+  // *Update a Book
+  socket.on("updateBook", async (data) => {
+    // event name: updateBook
+    try {
+      if (data) {
+        const { bookId, bookName, bookPrice } = data;
+        const updatedBook = await Book.findByIdAndUpdate(
+          bookId,
+          { bookName, bookPrice },
+          { new: true }
+        );
+        socket.emit("response", {
+          // event name: response
+          status: 200,
+          message: "Book updated successfully",
+          data: updatedBook,
+        });
+      }
+    } catch (error) {
+      socket.emit("response", {
+        // event name: response
+        status: 500,
+        message: "Something went wrong",
+      });
+    }
+  });
 
-      io.to(socket.id).emit('msg', 'Hello from server2!');
+  // *Delete a Book
+  socket.on("deleteBook", async (data) => {
+    // event name: deleteBook
+    try {
+      if (data) {
+        const { bookId } = data;
+        await Book.findByIdAndDelete(bookId);
+        socket.emit("response", {
+          // event name: response
+          status: 200,
+          message: "Book deleted successfully",
+        });
+      }
+    } catch (error) {
+      socket.emit("response", {
+        // event name: response
+        status: 500,
+        message: "Something went wrong",
+      });
+    }
+  });
 });
